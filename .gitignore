@@ -1,0 +1,9 @@
+
+/.idea/
+/.vagrant/
+
+target/
+/mybatis/src/main/java/com/github/sridhav/jmxrest/mybatis/entity/
+/mybatis/src/main/java/com/github/sridhav/jmxrest/mybatis/mapper/
+/mybatis/src/main/resources/com/github/sridhav/jmxrest/mybatis/mapper/
+*.iml
