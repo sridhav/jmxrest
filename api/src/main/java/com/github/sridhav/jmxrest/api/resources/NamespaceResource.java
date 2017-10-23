@@ -1,6 +1,7 @@
 package com.github.sridhav.jmxrest.api.resources;
 
 
+import com.github.sridhav.jmxrest.api.JmxApplication;
 import com.github.sridhav.jmxrest.api.dto.SuccessDto;
 import com.github.sridhav.jmxrest.mybatis.dao.NamespaceService;
 import com.github.sridhav.jmxrest.mybatis.entity.Namespace;
@@ -11,7 +12,7 @@ import java.util.List;
 
 
 @Path("/namespaces")
-public class NamespaceResource extends AbstractResource{
+public class NamespaceResource extends RootResource{
 
     private NamespaceService namespaceService = new NamespaceService();
 
@@ -19,7 +20,10 @@ public class NamespaceResource extends AbstractResource{
     @Consumes({MediaType.APPLICATION_JSON})
     @Produces({MediaType.APPLICATION_JSON})
     public SuccessDto createNamespace(Namespace namespace){
-        namespaceService.createNamespace(namespace);
+        if(namespaceService.createNamespace(namespace)) {
+            JmxApplication.addToJmxServiceMap(namespace);
+        }
+
         return getSuccess();
     }
 

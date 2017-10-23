@@ -1,5 +1,10 @@
 package com.github.sridhav.jmxrest.core;
 
+import org.apache.log4j.Logger;
+
+import javax.management.remote.JMXServiceURL;
+import java.net.MalformedURLException;
+
 public class JmxConnectionConfig {
     private String hostname;
 
@@ -18,6 +23,8 @@ public class JmxConnectionConfig {
     private String sslKeyPassword;
 
     private String sslTruststorePasssword;
+
+    private final static Logger LOGGER = Logger.getLogger(JmxConnectionConfig.class);
 
     public String getHostname() {
         return hostname;
@@ -91,5 +98,15 @@ public class JmxConnectionConfig {
         this.sslTruststorePasssword = sslTruststorePasssword;
     }
 
+    public JMXServiceURL getJMXServiceURL() {
+        JMXServiceURL jmxServiceURL = null;
+        String jmxUrl = String.format("service:jmx:rmi:///jndi/rmi://%s:%d/jmxrmi", this.getHostname(), this.getPort());
+        try {
+            jmxServiceURL = new JMXServiceURL(jmxUrl);
+        } catch (MalformedURLException e) {
+            LOGGER.error(e.getMessage());
+        }
+        return jmxServiceURL;
+    }
 
 }

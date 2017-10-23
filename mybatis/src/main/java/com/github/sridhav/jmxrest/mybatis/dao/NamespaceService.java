@@ -12,8 +12,13 @@ public class NamespaceService extends DaoService{
 
     private NamespaceExample namespaceExample = new NamespaceExample();
 
-    public void createNamespace(Namespace namespace) {
-        mapper.insert(namespace);
+    public Boolean createNamespace(Namespace namespace) {
+        int insert = mapper.insert(namespace);
+        Boolean ret = false;
+        if (insert > 0) {
+            ret =true;
+        }
+        return true;
     }
 
     public Namespace getNamespaceByName(String name){

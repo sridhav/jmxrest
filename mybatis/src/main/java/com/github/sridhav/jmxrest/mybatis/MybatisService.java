@@ -4,6 +4,7 @@ import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.apache.ibatis.session.SqlSessionFactoryBuilder;
+import org.apache.log4j.Logger;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -16,6 +17,8 @@ public class MybatisService {
 
     private static String defaultResource = "mybatis-config.xml";
 
+    private static Logger LOGGER = Logger.getLogger(MybatisService.class);
+
     public static void init(Properties properties, String resource) {
         try {
             if (sqlSessionFactory == null) {
@@ -23,7 +26,7 @@ public class MybatisService {
                 sqlSessionFactory = new SqlSessionFactoryBuilder().build(inputStream, properties);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error(e.getMessage());
         }
     }
 
@@ -32,7 +35,7 @@ public class MybatisService {
             String resource = Resources.getResourceAsFile(defaultResource).getAbsolutePath();
             init(properties, resource);
         } catch (IOException e) {
-            e.printStackTrace();
+            LOGGER.error(e.getMessage());
         }
     }
 

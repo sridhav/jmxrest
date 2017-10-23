@@ -1,39 +1,30 @@
 package com.github.sridhav.jmxrest.core;
 
-import com.github.sridhav.jmxrest.core.model.JmxBean;
-import org.apache.commons.pool2.impl.GenericObjectPool;
+import com.github.sridhav.jmxrest.core.model.MBean;
+import com.github.sridhav.jmxrest.core.services.MBeanService;
+import org.apache.log4j.Logger;
+import com.github.sridhav.jmxrest.config.JmxProperties;
 
 import javax.management.*;
+import javax.management.remote.JMXConnector;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public class JmxService {
 
-    private GenericObjectPool<JmxConnection> genericObjectPool = null;
+    private JmxPoolManager jmxPoolManager;
 
-    private JmxConnection jmxConnection = null;
+    private JMXConnector jmxConnector = null;
 
-    private JmxConnectionConfig jmxConnectionConfig = null;
+    private final static Logger LOGGER = Logger.getLogger(JmxService.class);
+
+
+    public JmxService(JmxProperties jmxProperties, String namespace) {
+        this.setJmxPoolManager(new JmxPoolManager(jmxProperties, namespace));
+    }
 
     public JmxService(JmxConnectionConfig jmxConnectionConfig) {
-        this.jmxConnectionConfig  = jmxConnectionConfig;
-        init();
-    }
-
-    public JmxService(String hostname, Integer port) {
-        JmxConnectionConfig connectionConfig = new JmxConnectionConfig();
-        connectionConfig.setHostname(hostname);
-        connectionConfig.setPort(port);
-        this.setJmxConnectionConfig(jmxConnectionConfig);
-        init();
-    }
-
-    private void init() {
-        JmxConnectionFactory jmxConnectionFactory = new JmxConnectionFactory(this.getJmxConnectionConfig());
-        GenericObjectPool<JmxConnection> genericObjectPool = new GenericObjectPool<JmxConnection>(jmxConnectionFactory);
-        this.setGenericObjectPool(genericObjectPool);
+        jmxPoolManager = new JmxPoolManager(jmxConnectionConfig);
     }
 
     public List<String> getDomains() {
@@ -41,7 +32,9 @@ public class JmxService {
         try {
             domains = Arrays.asList(this.getConnection().getDomains());
         } catch (IOException e) {
-            e.printStackTrace();
+            LOGGER.error(e.getMessage());
+        } finally {
+            this.releaseConnection();
         }
 
         return domains;
@@ -52,25 +45,19 @@ public class JmxService {
         try {
             domain = this.getConnection().getDefaultDomain();
         } catch (IOException e) {
-            e.printStackTrace();
+            LOGGER.error(e.getMessage());
+        } finally {
+            this.releaseConnection();
         }
         return domain;
     }
 
-    public GenericObjectPool<JmxConnection> getGenericObjectPool() {
-        return genericObjectPool;
-    }
 
-    public void setGenericObjectPool(GenericObjectPool<JmxConnection> genericObjectPool) {
-        this.genericObjectPool = genericObjectPool;
-    }
-
-    public JmxConnection getJmxConnection() {
-        return this.jmxConnection;
-    }
-
-    public void setJmxConnection(JmxConnection jmxConnection) {
-        this.jmxConnection = jmxConnection;
+    public List<MBean> getAllMbeans(String domain) {
+        MBeanService mBeanService = new MBeanService(this.getConnection());
+        List<MBean> mBeans = mBeanService.getAllMbeans(domain);
+        this.releaseConnection();
+        return mBeans;
     }
 
 
@@ -78,64 +65,40 @@ public class JmxService {
     public MBeanServerConnection getConnection() {
         MBeanServerConnection mBeanServerConnection = null;
         try {
-             JmxConnection jmxConnection = this.getGenericObjectPool().borrowObject();
-             this.setJmxConnection(jmxConnection);
-             System.out.println(jmxConnection);
-             mBeanServerConnection = jmxConnection.getmBeanServerConnection();
+           mBeanServerConnection =  this.getJmxConnector().getMBeanServerConnection();
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error(e.getMessage());
         }
-
         return mBeanServerConnection;
     }
 
+
+
+    public JMXConnector getJmxConnector() {
+        if (jmxConnector == null) {
+            this.setJmxConnector(jmxPoolManager.getConnectionFromPool());
+        }
+        return jmxConnector;
+    }
+
+
     public void releaseConnection() {
-        if (this.getJmxConnection() != null) {
-            this.getGenericObjectPool().returnObject(this.getJmxConnection());
+        if (this.getJmxConnector() != null) {
+            jmxPoolManager.returnConnectionToPool(this.getJmxConnector());
+            this.setJmxConnector(null);
         }
     }
 
-    public JmxConnectionConfig getJmxConnectionConfig() {
-        return jmxConnectionConfig;
+    public void setJmxConnector(JMXConnector jmxConnector) {
+        this.jmxConnector = jmxConnector;
     }
 
-
-    public void setJmxConnectionConfig(JmxConnectionConfig jmxConnectionConfig) {
-        this.jmxConnectionConfig = jmxConnectionConfig;
+    public JmxPoolManager getJmxPoolManager() {
+        return jmxPoolManager;
     }
 
-
-    public JmxBean getAttribute(String query) {
-        QueryService queryService = new QueryService(query);
-        JmxBean jmxBean = queryService.getJmxBeanWithValue(this.getConnection());
-        this.releaseConnection();
-
-        return jmxBean;
-    }
-
-
-    public JmxBean getAttribute(String domain, String name, String type, String attribute) {
-        JmxBean jmxBean = new JmxBean();
-        if (!(CoreUtils.isNullOrEmpty(domain) || CoreUtils.isNullOrEmpty(type) || CoreUtils.isNullOrEmpty(attribute))) {
-            String query = String.format(CoreUtils.TEMPLATE_JMX_BEAN, domain, type, attribute);
-            if (!(CoreUtils.isNullOrEmpty(name))){
-                query = String.format(CoreUtils.TEMPLATE_JMX_BEAN_NAME, domain, type, attribute, name);
-            }
-            jmxBean = this.getAttribute(query);
-        }
-
-        return jmxBean;
-    }
-
-
-    public JmxBean getAttribute(String objectName, String attribute) {
-        String query = CoreUtils.convertObjectNameToQuery(objectName, attribute);
-        return this.getAttribute(query);
-    }
-
-    public JmxBean getAttribute(ObjectName objectName, String attribute) {
-        String objectNameString = objectName.getCanonicalName();
-        return this.getAttribute(objectNameString, attribute);
+    public void setJmxPoolManager(JmxPoolManager jmxPoolManager) {
+        this.jmxPoolManager = jmxPoolManager;
     }
 
 }

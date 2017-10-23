@@ -1,5 +1,9 @@
 package com.github.sridhav.jmxrest.api;
 
+import com.github.sridhav.jmxrest.config.JmxConfigurator;
+import com.github.sridhav.jmxrest.config.JmxProperties;
+import com.github.sridhav.jmxrest.core.JmxService;
+import com.github.sridhav.jmxrest.mybatis.entity.Namespace;
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.Slf4jRequestLog;
@@ -14,6 +18,9 @@ import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.servlet.ServletContainer;
 
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -25,8 +32,20 @@ public class JmxApplication {
 
     private Server server = null;
 
-     JmxApplication() {
+    private static Map<String, JmxService> jmxServiceHashMap= new HashMap<String, JmxService>();
+
+    JmxApplication() {
+        this.initJmxService();
         this.server = createServer();
+    }
+
+    private void initJmxService() {
+        List<String> namespaces = JmxConfigurator.getNamespaces();
+        for (String namespace: namespaces) {
+            JmxProperties jmxProperties = JmxConfigurator.getNamespaceProperties(namespace);
+            JmxService jmxService = new JmxService(jmxProperties, namespace);
+            jmxServiceHashMap.put(namespace, jmxService);
+        }
     }
 
     private Server createServer() {
@@ -84,6 +103,10 @@ public class JmxApplication {
         } catch (Exception e) {
             Logger.getLogger(JmxApplication.class.getName()).log(Level.SEVERE, null, e);
         }
+    }
+
+    public static Map<String, JmxService> getJmxServiceMap() {
+        return jmxServiceHashMap;
     }
 
 }
